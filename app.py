@@ -88,12 +88,10 @@ def inject_styles() -> None:
         .footer { border-top: 1px solid var(--line); margin-top: 5rem; padding-top: 1.2rem; color: #647286; font-size: .72rem; display: flex; justify-content: space-between; }
         .stButton > button { border-radius: 10px; border: 1px solid rgba(98,228,230,.38); background: rgba(98,228,230,.1); color: var(--cyan); font-weight: 700; }
         .stButton > button:hover { border-color: var(--cyan); color: white; }
-        [data-testid="stFileUploader"] { margin: 0; min-width: 190px; }
-        [data-testid="stFileUploader"] section { border: 0; background: transparent; padding: 0; min-height: 0; }
-        [data-testid="stFileUploaderDropzone"] { border: 0; background: transparent; padding: 0; min-height: 0; }
-        [data-testid="stFileUploader"] button { border-radius: 9px; background: var(--cyan); color: #081017; border: 0; font-weight: 800; padding: .55rem .9rem; }
+        [data-testid="stFileUploader"] { margin-top: -1.6rem; }
+        [data-testid="stFileUploader"] section { border: 0; background: transparent; padding: 0; }
+        [data-testid="stFileUploader"] button { border-radius: 9px; background: var(--cyan); color: #081017; border: 0; font-weight: 800; }
         [data-testid="stFileUploaderDropzoneInstructions"] { display: none; }
-        [data-testid="stFileUploaderFile"] { margin-top: .5rem; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -128,28 +126,29 @@ st.markdown(
 
 left, right = st.columns([1.5, 1], gap="large")
 with left:
-    with st.container():
-        upload_header, upload_button = st.columns([1.7, 1], vertical_alignment="center")
-        with upload_header:
-            st.markdown('<div class="panel-title"><h3>Upload audio sample</h3><span class="step">01 / INPUT</span></div>', unsafe_allow_html=True)
-        with upload_button:
-            uploaded_file = st.file_uploader(
-                "Upload an audio file",
-                type=["wav", "mp3", "flac", "ogg", "m4a"],
-                label_visibility="collapsed",
-            )
-        st.markdown(
-            """
-            <div class="panel">
-              <div class="drop-copy">
-                <div class="upload-icon">↑</div>
-                <strong>Choose an audio file to begin</strong>
-                <span>WAV, MP3, FLAC, OGG, or M4A</span>
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+    upload_header, upload_button, upload_step = st.columns([1.55, 1, .6], vertical_alignment="center")
+    with upload_header:
+        st.markdown('<h3 style="margin: 0;">Upload audio sample</h3>', unsafe_allow_html=True)
+    with upload_button:
+        uploaded_file = st.file_uploader(
+            "Upload an audio file",
+            type=["wav", "mp3", "flac", "ogg", "m4a"],
+            label_visibility="collapsed",
         )
+    with upload_step:
+        st.markdown('<div class="step" style="text-align: center;">01 / INPUT</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="panel">
+          <div class="drop-copy">
+            <div class="upload-icon">↑</div>
+            <strong>Choose an audio file to begin</strong>
+            <span>WAV, MP3, FLAC, OGG, or M4A</span>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     if uploaded_file:
         suffix = Path(uploaded_file.name).suffix.lower()
         st.audio(uploaded_file, format=f"audio/{suffix.lstrip('.')}")

@@ -64,8 +64,6 @@ def inject_styles() -> None:
         .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5.2rem; }
         .brand { display: flex; gap: .75rem; align-items: center; color: var(--ink); font-weight: 800; font-size: 1.05rem; }
         .brand-mark { display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid var(--cyan); color: var(--cyan); border-radius: 9px; box-shadow: 0 0 24px rgba(98,228,230,.18); }
-        .status { color: var(--muted); font-size: .76rem; display: flex; align-items: center; gap: .55rem; }
-        .status-dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; box-shadow: 0 0 12px var(--green); }
         .hero-copy { max-width: 700px; margin-bottom: 2.5rem; }
         .hero-copy p { color: var(--muted); font-size: 1.03rem; line-height: 1.7; max-width: 600px; }
         .accent { color: var(--cyan); }
@@ -115,7 +113,6 @@ st.markdown(
     """
     <div class="topbar">
       <div class="brand"><div class="brand-mark">◈</div> SPECTRAGUARD</div>
-      <div class="status"><span class="status-dot"></span> SYSTEM READY&nbsp;&nbsp; / &nbsp;&nbsp;M6 PIPELINE</div>
     </div>
     <div class="hero-copy">
       <div class="eyebrow">AI music detection · spectral analysis</div>

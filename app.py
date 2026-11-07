@@ -118,7 +118,7 @@ st.markdown(
       <div class="eyebrow">AI music detection · spectral analysis</div>
       <h1>Find the signal<br>inside the <span class="accent">sound.</span></h1>
       <p>Upload an audio track to inspect its spectral fingerprint. Our research pipeline is designed to surface the subtle artifacts that separate generated music from human performance.</p>
-      <div class="hero-meta"><div>MODEL <span>RESNET-18 + SVM</span></div><div>INPUT <span>WAV / MP3</span></div><div>STATUS <span>ALPHA</span></div></div>
+      <div class="hero-meta"><div>MODEL <span>RESNET-18 + SVM</span></div><div>INPUT <span>WAV / MP3</span></div></div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -126,23 +126,26 @@ st.markdown(
 
 left, right = st.columns([1.5, 1], gap="large")
 with left:
+    upload_header, upload_button = st.columns([1.7, 1], vertical_alignment="center")
+    with upload_header:
+        st.markdown('<div class="panel-title"><h3>Upload audio sample</h3><span class="step">01 / INPUT</span></div>', unsafe_allow_html=True)
+    with upload_button:
+        uploaded_file = st.file_uploader(
+            "Upload an audio file",
+            type=["wav", "mp3", "flac", "ogg", "m4a"],
+            label_visibility="collapsed",
+        )
     st.markdown(
         """
         <div class="panel">
-          <div class="panel-title"><h3>Upload audio sample</h3><span class="step">01 / INPUT</span></div>
           <div class="drop-copy">
             <div class="upload-icon">↑</div>
-            <strong>Drop your audio file here</strong>
-            <span>or select a file from your device</span>
+            <strong>Choose an audio file to begin</strong>
+            <span>WAV, MP3, FLAC, OGG, or M4A</span>
           </div>
         </div>
         """,
         unsafe_allow_html=True,
-    )
-    uploaded_file = st.file_uploader(
-        "Upload an audio file",
-        type=["wav", "mp3", "flac", "ogg", "m4a"],
-        label_visibility="collapsed",
     )
     if uploaded_file:
         suffix = Path(uploaded_file.name).suffix.lower()

@@ -83,8 +83,7 @@ def inject_styles() -> None:
         .metric-card { background: var(--panel); border: 1px solid var(--line); padding: 1rem; border-radius: 14px; min-height: 105px; }
         .metric-label { color: var(--muted); font-size: .72rem; }
         .metric-value { font: 500 1.3rem 'DM Mono', monospace; margin-top: .7rem; }
-        .disabled-card { opacity: .58; position: relative; overflow: hidden; }
-        .disabled-card:after { content: 'COMING NEXT'; position: absolute; right: -27px; top: 16px; transform: rotate(38deg); color: #0b111c; background: var(--violet); font: 500 .6rem 'DM Mono', monospace; padding: .28rem 1.4rem; }
+        .disabled-card { opacity: .58; }
         .pipeline { display: flex; align-items: center; gap: .55rem; margin-top: 1.2rem; color: var(--muted); font: .68rem 'DM Mono', monospace; }
         .pipeline b { color: var(--cyan); font-weight: 400; }
         .arrow { color: #475569; }

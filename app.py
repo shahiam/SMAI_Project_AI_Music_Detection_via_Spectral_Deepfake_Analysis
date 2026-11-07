@@ -126,10 +126,11 @@ st.markdown(
 
 left, right = st.columns([1.5, 1], gap="large")
 with left:
-    upload_header, upload_button, upload_step = st.columns([1.55, 1, .6], vertical_alignment="center")
+    upload_header, upload_button, upload_step = st.columns([1.45, .95, .75], vertical_alignment="center")
     with upload_header:
         st.markdown('<h3 style="margin: 0;">Upload audio sample</h3>', unsafe_allow_html=True)
     with upload_button:
+        st.markdown('<div style="height: .45rem;"></div>', unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
             "Upload an audio file",
             type=["wav", "mp3", "flac", "ogg", "m4a"],

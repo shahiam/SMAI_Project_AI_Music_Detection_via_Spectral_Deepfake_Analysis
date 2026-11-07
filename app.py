@@ -1,8 +1,23 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import streamlit as st
+
+
+if not st.runtime.exists():
+    if os.environ.get("SPECTRAGUARD_STREAMLIT_LAUNCHED") != "1":
+        environment = os.environ.copy()
+        environment["SPECTRAGUARD_STREAMLIT_LAUNCHED"] = "1"
+        raise SystemExit(
+            subprocess.call(
+                [sys.executable, "-m", "streamlit", "run", str(Path(__file__).resolve())],
+                env=environment,
+            )
+        )
 
 
 st.set_page_config(

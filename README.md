@@ -34,7 +34,9 @@ python -m music_detection.cli classical --manifest data\demo\manifest.csv --outp
 python -m music_detection.cli modern --manifest data\demo\manifest.csv --output runs\modern --epochs 1 --no-pretrained
 
 # Launch the upload dashboard (processing/results are intentionally staged for the next checkpoint).
-py -m streamlit run app.py
+python app.py
+# Equivalent standard Streamlit command:
+# py -m streamlit run app.py
 ```
 
 For M6, create a CSV with columns `path,label,track_id,split`, where `label` is `0` for human

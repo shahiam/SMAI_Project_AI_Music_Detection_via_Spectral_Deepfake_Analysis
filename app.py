@@ -88,9 +88,11 @@ def inject_styles() -> None:
         .footer { border-top: 1px solid var(--line); margin-top: 5rem; padding-top: 1.2rem; color: #647286; font-size: .72rem; display: flex; justify-content: space-between; }
         .stButton > button { border-radius: 10px; border: 1px solid rgba(98,228,230,.38); background: rgba(98,228,230,.1); color: var(--cyan); font-weight: 700; }
         .stButton > button:hover { border-color: var(--cyan); color: white; }
-        [data-testid="stFileUploader"] { margin-top: -1.6rem; }
-        [data-testid="stFileUploader"] section { border: 0; background: transparent; padding: 0; }
-        [data-testid="stFileUploader"] button { border-radius: 9px; background: var(--cyan); color: #081017; border: 0; font-weight: 800; }
+        [data-testid="stFileUploader"] { margin: .45rem 0 0 -1rem; }
+        [data-testid="stFileUploader"] section { border: 0; background: transparent; padding: 0; min-height: 0; }
+        [data-testid="stFileUploader"] section > div { min-height: 0; padding: 0; }
+        [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
+        [data-testid="stFileUploader"] button { border-radius: 9px; background: var(--cyan); color: #081017; border: 0; font-weight: 800; padding: .55rem 1rem; }
         [data-testid="stFileUploaderDropzoneInstructions"] { display: none; }
         </style>
         """,

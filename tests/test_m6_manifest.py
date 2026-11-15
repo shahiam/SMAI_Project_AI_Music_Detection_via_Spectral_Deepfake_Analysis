@@ -10,8 +10,8 @@ def test_m6_manifest_infers_labels_generators_and_splits(tmp_path: Path):
     human = tmp_path / "M6_database" / "human" / "genres"
     ai.mkdir(parents=True)
     human.mkdir(parents=True)
-    (ai / "AMG_jazz12.wav").write_bytes(b"wav")
-    (human / "human_jazz12.wav").write_bytes(b"wav")
+    (ai / "AMG_jazz12.wav").write_bytes(b"RIFF")
+    (human / "human_jazz12.wav").write_bytes(b"RIFF")
 
     output = build_manifest(tmp_path / "M6_database", tmp_path / "manifest.csv")
     frame = pd.read_csv(output)

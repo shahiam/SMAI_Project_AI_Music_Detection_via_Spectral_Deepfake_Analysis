@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import os
 import re
+import warnings
 from pathlib import Path
 
 import librosa
@@ -50,7 +51,11 @@ def build_manifest(dataset_root: str | Path, output_path: str | Path, include_du
         raise FileNotFoundError(f"No .wav files found below {root}")
 
     rows = []
+    skipped = []
     for path in files:
+        if path.read_bytes()[:4] != b"RIFF":
+            skipped.append(path)
+            continue
         relative = path.relative_to(root)
         parts = {part.lower() for part in relative.parts}
         label = int("ai" in parts)
@@ -70,6 +75,13 @@ def build_manifest(dataset_root: str | Path, output_path: str | Path, include_du
     frame = pd.DataFrame(rows)
     if set(frame["label"]) != {0, 1}:
         raise ValueError("The extracted M6 directory must contain both AI and human WAV files.")
+    if skipped:
+        warnings.warn(
+            f"Skipped {len(skipped)} file(s) without a RIFF WAV header: "
+            f"{[str(path) for path in skipped[:3]]}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     frame["path"] = frame["path"].map(

@@ -1,4 +1,5 @@
-PYTHON ?= python
+# Use python3 in WSL/Linux when the `python` alias is unavailable.
+PYTHON ?= $(shell command -v python 2>/dev/null || command -v python3 2>/dev/null || echo python3)
 PIP := $(PYTHON) -m pip
 STREAMLIT := $(PYTHON) -m streamlit
 

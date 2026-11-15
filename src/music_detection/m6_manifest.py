@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import re
 from pathlib import Path
 
@@ -71,6 +72,9 @@ def build_manifest(dataset_root: str | Path, output_path: str | Path, include_du
         raise ValueError("The extracted M6 directory must contain both AI and human WAV files.")
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
+    frame["path"] = frame["path"].map(
+        lambda value: os.path.relpath(root / value, output.parent)
+    )
     frame.to_csv(output, index=False)
     return output
 

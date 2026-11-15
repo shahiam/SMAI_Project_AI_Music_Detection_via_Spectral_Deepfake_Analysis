@@ -1,7 +1,14 @@
 # Use python3 in WSL/Linux when the `python` alias is unavailable.
 PYTHON ?= $(shell command -v python 2>/dev/null || command -v python3 2>/dev/null || echo python3)
-PIP := $(PYTHON) -m pip
-STREAMLIT := $(PYTHON) -m streamlit
+
+ifeq ($(OS),Windows_NT)
+VENV_PYTHON := .venv/Scripts/python.exe
+else
+VENV_PYTHON := .venv/bin/python
+endif
+
+PIP := $(VENV_PYTHON) -m pip
+STREAMLIT := $(VENV_PYTHON) -m streamlit
 
 DEMO_MANIFEST := data/demo/manifest.csv
 M6_ROOT ?= data/M6_database
@@ -23,31 +30,34 @@ help:
 	@echo ""
 	@echo "M6 example: make m6-manifest M6_ROOT=data/M6_database"
 
-install:
+$(VENV_PYTHON):
+	$(PYTHON) -m venv .venv
+
+install: $(VENV_PYTHON)
 	$(PIP) install -r requirements.txt
 	$(PIP) install -e .
 
-test:
-	$(PYTHON) -m pytest -q
+test: install
+	$(VENV_PYTHON) -m pytest -q
 
-demo:
-	$(PYTHON) -m music_detection.cli make-demo-data --output data/demo
+demo: install
+	$(VENV_PYTHON) -m music_detection.cli make-demo-data --output data/demo
 
 classical: demo
-	$(PYTHON) -m music_detection.cli classical --manifest $(DEMO_MANIFEST) --output runs/classical
+	$(VENV_PYTHON) -m music_detection.cli classical --manifest $(DEMO_MANIFEST) --output runs/classical
 
 modern: demo
-	$(PYTHON) -m music_detection.cli modern --manifest $(DEMO_MANIFEST) --output runs/modern --epochs 1 --no-pretrained
+	$(VENV_PYTHON) -m music_detection.cli modern --manifest $(DEMO_MANIFEST) --output runs/modern --epochs 1 --no-pretrained
 
 m6-manifest:
-	$(PYTHON) -m music_detection.cli build-m6-manifest --root $(M6_ROOT) --output $(M6_MANIFEST) --include-duration
+	$(VENV_PYTHON) -m music_detection.cli build-m6-manifest --root $(M6_ROOT) --output $(M6_MANIFEST) --include-duration
 
 train: classical modern
 
-dashboard:
+dashboard: install
 	$(STREAMLIT) run app.py
 
 all: install test train
 
 clean:
-	$(PYTHON) -c "from pathlib import Path; [p.unlink() for p in Path('.').rglob('*.pyc')]; print('Removed Python bytecode')"
+	$(VENV_PYTHON) -c "from pathlib import Path; [p.unlink() for p in Path('.').rglob('*.pyc')]; print('Removed Python bytecode')"

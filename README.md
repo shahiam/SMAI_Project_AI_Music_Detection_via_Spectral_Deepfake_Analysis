@@ -47,10 +47,11 @@ python app.py
 # py -m streamlit run app.py
 ```
 
-The `Makefile` also provides `make train` for both demo branches and `make all` for setup,
-tests, and the demo training run. It automatically uses `python3` on WSL/Linux when `python`
-is unavailable. On Windows, override it with `make PYTHON=py`. It deliberately does not
-download the approximately 28 GB M6 archive automatically.
+The `Makefile` creates a local `.venv` and uses it for all project commands, avoiding the
+PEP 668 externally-managed-environment error on modern WSL/Linux distributions. It also
+automatically uses `python3` on WSL/Linux when `python` is unavailable. On Windows, override
+it with `make PYTHON=py`. It deliberately does not download the approximately 28 GB M6 archive
+automatically.
 
 For M6, create a CSV with columns `path,label,track_id,split`, where `label` is `0` for human
 and `1` for AI-generated. Keep all segments from one source track in one split to prevent

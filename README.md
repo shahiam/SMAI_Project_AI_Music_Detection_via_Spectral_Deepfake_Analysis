@@ -43,6 +43,21 @@ For M6, create a CSV with columns `path,label,track_id,split`, where `label` is 
 and `1` for AI-generated. Keep all segments from one source track in one split to prevent
 leakage. Paths may be absolute or relative to the manifest location.
 
+The public M6 archive is approximately 28 GB and should not be committed to this repository.
+After downloading and extracting it locally, generate a manifest with:
+
+```powershell
+python -m music_detection.cli build-m6-manifest `
+  --root data\M6_database `
+  --output data\m6_manifest.csv `
+  --include-duration
+```
+
+The command labels files below an `ai` directory as AI-generated, identifies `AMG`, `MGPT`,
+and `MG` generators from filename prefixes, records genre metadata, and assigns deterministic
+80/10/10 train/validation/test splits by `track_id`. Review the generated class and split counts
+before training.
+
 ## Checkpoints
 
 These are the intended commit/push points:

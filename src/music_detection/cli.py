@@ -4,6 +4,7 @@ import argparse
 
 from .classical import run as run_classical
 from .modern import run as run_modern
+from .m6_manifest import build_manifest
 from .synthetic import create_demo
 
 
@@ -20,13 +21,19 @@ def main() -> None:
     modern.add_argument("--output", required=True)
     modern.add_argument("--epochs", type=int, default=5)
     modern.add_argument("--no-pretrained", action="store_true")
+    manifest = subparsers.add_parser("build-m6-manifest")
+    manifest.add_argument("--root", required=True)
+    manifest.add_argument("--output", required=True)
+    manifest.add_argument("--include-duration", action="store_true")
     args = parser.parse_args()
     if args.command == "make-demo-data":
         print(create_demo(args.output))
     elif args.command == "classical":
         print(run_classical(args.manifest, args.output))
-    else:
+    elif args.command == "modern":
         print(run_modern(args.manifest, args.output, args.epochs, pretrained=not args.no_pretrained))
+    else:
+        print(build_manifest(args.root, args.output, args.include_duration))
 
 
 if __name__ == "__main__":

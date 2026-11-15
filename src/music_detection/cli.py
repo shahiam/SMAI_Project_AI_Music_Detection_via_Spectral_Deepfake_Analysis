@@ -20,6 +20,10 @@ def main() -> None:
     modern.add_argument("--manifest", required=True)
     modern.add_argument("--output", required=True)
     modern.add_argument("--epochs", type=int, default=5)
+    modern.add_argument("--batch-size", type=int, default=16)
+    modern.add_argument("--workers", type=int, default=2)
+    modern.add_argument("--cache-dir")
+    modern.add_argument("--resume")
     modern.add_argument("--no-pretrained", action="store_true")
     manifest = subparsers.add_parser("build-m6-manifest")
     manifest.add_argument("--root", required=True)
@@ -31,7 +35,18 @@ def main() -> None:
     elif args.command == "classical":
         print(run_classical(args.manifest, args.output))
     elif args.command == "modern":
-        print(run_modern(args.manifest, args.output, args.epochs, pretrained=not args.no_pretrained))
+        print(
+            run_modern(
+                args.manifest,
+                args.output,
+                args.epochs,
+                batch_size=args.batch_size,
+                pretrained=not args.no_pretrained,
+                workers=args.workers,
+                cache_dir=args.cache_dir,
+                resume=args.resume,
+            )
+        )
     else:
         print(build_manifest(args.root, args.output, args.include_duration))
 

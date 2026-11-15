@@ -19,6 +19,14 @@ dataset is available. Replace the manifest with the M6 subset for the actual exp
 ## Quick start
 
 ```powershell
+make install
+make test
+make dashboard
+```
+
+If `make` is not installed on Windows, run the equivalent commands directly:
+
+```powershell
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -38,6 +46,10 @@ python app.py
 # Equivalent standard Streamlit command:
 # py -m streamlit run app.py
 ```
+
+The `Makefile` also provides `make train` for both demo branches and `make all` for setup,
+tests, and the demo training run. It deliberately does not download the approximately 28 GB M6
+archive automatically.
 
 For M6, create a CSV with columns `path,label,track_id,split`, where `label` is `0` for human
 and `1` for AI-generated. Keep all segments from one source track in one split to prevent

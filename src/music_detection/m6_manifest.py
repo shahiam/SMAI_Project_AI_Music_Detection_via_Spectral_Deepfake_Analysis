@@ -73,7 +73,7 @@ def build_manifest(dataset_root: str | Path, output_path: str | Path, include_du
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     frame["path"] = frame["path"].map(
-        lambda value: os.path.relpath(root / value, output.parent)
+        lambda value: Path(os.path.relpath(root / value, output.parent)).as_posix()
     )
     frame.to_csv(output, index=False)
     return output

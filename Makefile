@@ -31,9 +31,12 @@ help:
 	@echo "M6 example: make m6-manifest M6_ROOT=data/M6_database"
 
 $(VENV_PYTHON):
+	@echo "Creating project virtual environment at .venv..."
 	$(PYTHON) -m venv .venv
+	@echo "Virtual environment ready."
 
 install: $(VENV_PYTHON)
+	@echo "Installing project dependencies..."
 	$(PIP) install -r requirements.txt
 	$(PIP) install -e .
 

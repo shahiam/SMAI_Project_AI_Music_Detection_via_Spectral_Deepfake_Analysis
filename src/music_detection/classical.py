@@ -5,6 +5,7 @@ from pathlib import Path
 
 import joblib
 import numpy as np
+import pandas as pd
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
@@ -29,6 +30,22 @@ def run(manifest_path: str, output_dir: str) -> dict[str, float]:
     joblib.dump(model, output / "svm.joblib")
     save_metrics(output, metrics, manifest.loc[test, "label"], predictions)
     return metrics
+
+
+def predict_files(model_path: str | Path, audio_paths: list[str | Path]) -> pd.DataFrame:
+    """Predict human/AI labels for uploaded audio files using a trained SVM."""
+    if not audio_paths:
+        raise ValueError("At least one audio file is required.")
+    model = joblib.load(model_path)
+    features = np.vstack([classical_features(path) for path in audio_paths])
+    probabilities = model.predict_proba(features)[:, 1]
+    return pd.DataFrame(
+        {
+            "filename": [Path(path).name for path in audio_paths],
+            "ai_probability": probabilities,
+            "prediction": np.where(probabilities >= 0.5, "AI-generated", "Human"),
+        }
+    )
 
 
 def main() -> None:

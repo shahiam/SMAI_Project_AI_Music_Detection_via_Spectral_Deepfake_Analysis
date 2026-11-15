@@ -4,8 +4,12 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
+import pandas as pd
 import streamlit as st
+
+from music_detection.classical import predict_files
 
 
 if not st.runtime.exists():
@@ -134,8 +138,9 @@ with left:
     with upload_button:
         st.markdown('<div style="height: .45rem;"></div>', unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
-            "Upload an audio file",
+            "Upload audio files",
             type=["wav", "mp3", "flac", "ogg", "m4a"],
+            accept_multiple_files=True,
             label_visibility="collapsed",
         )
     with upload_step:
@@ -145,20 +150,56 @@ with left:
         <div class="panel">
           <div class="drop-copy">
             <div class="upload-icon">↑</div>
-            <strong>Choose an audio file to begin</strong>
-            <span>WAV, MP3, FLAC, OGG, or M4A</span>
+            <strong>Choose audio files to begin</strong>
+            <span>Upload one or more WAV, MP3, FLAC, OGG, or M4A files</span>
           </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
     if uploaded_file:
-        suffix = Path(uploaded_file.name).suffix.lower()
-        st.audio(uploaded_file, format=f"audio/{suffix.lstrip('.')}")
-        st.success(f"Ready for analysis · {uploaded_file.name} · {uploaded_file.size / 1024:.1f} KB")
-        st.button("Continue to analysis  →", use_container_width=True, disabled=True)
+        st.success(f"{len(uploaded_file)} file(s) ready for analysis")
+        with st.expander("Preview uploaded audio", expanded=False):
+            for audio_file in uploaded_file:
+                st.write(audio_file.name)
+                st.audio(audio_file)
+        if st.button("Analyze selected files  →", use_container_width=True, type="primary"):
+            model_path = Path("runs/classical/svm.joblib")
+            if not model_path.is_file():
+                st.error("No trained model found. Run `make classical` first, then upload the files again.")
+            else:
+                with tempfile.TemporaryDirectory(prefix="spectraguard-") as temp_dir:
+                    paths = []
+                    for index, audio_file in enumerate(uploaded_file):
+                        path = Path(temp_dir) / f"{index}{Path(audio_file.name).suffix.lower()}"
+                        path.write_bytes(audio_file.getbuffer())
+                        paths.append(path)
+                    with st.spinner("Extracting spectral features and classifying files..."):
+                        results = predict_files(model_path, paths)
+                results["ai_probability"] = (results["ai_probability"] * 100).round(2)
+                st.session_state["analysis_results"] = results
     else:
-        st.markdown('<div class="hint">Maximum file size: 200 MB &nbsp;·&nbsp; For research use only</div>', unsafe_allow_html=True)
+        st.markdown('<div class="hint">Upload multiple files · Maximum file size: 200 MB each · For research use only</div>', unsafe_allow_html=True)
+    if "analysis_results" in st.session_state:
+        results = st.session_state["analysis_results"]
+        st.markdown("#### Batch analysis results")
+        st.dataframe(
+            results,
+            column_config={
+                "ai_probability": st.column_config.ProgressColumn(
+                    "AI probability (%)", min_value=0, max_value=100, format="%.2f%%"
+                )
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
+        st.download_button(
+            "Download results CSV",
+            results.to_csv(index=False).encode("utf-8"),
+            "spectraguard-results.csv",
+            "text/csv",
+            use_container_width=True,
+        )
     st.markdown('<div class="pipeline"><b>UPLOAD</b><span class="arrow">→</span><span>PROCESSING</span><span class="arrow">→</span><span>RESULTS</span></div>', unsafe_allow_html=True)
 
 with right:

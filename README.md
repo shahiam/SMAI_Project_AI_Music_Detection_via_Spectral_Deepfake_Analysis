@@ -72,6 +72,19 @@ and `MG` generators from filename prefixes, records genre metadata, and assigns 
 80/10/10 train/validation/test splits by `track_id`. Review the generated class and split counts
 before training.
 
+With the archive downloaded as `data\M6_database.tar.gz`, the full workflow is:
+
+```powershell
+make extract-m6
+make m6-manifest
+make m6-train
+```
+
+`m6-train` writes independent artifacts to `runs\m6_classical` and `runs\m6_modern`.
+The 10-epoch ResNet run is expected to take hours on an 8 GB laptop GPU, depending on storage
+speed and the number of M6 clips; the SVM feature extraction is CPU-heavy and may also take
+hours. Start with `make m6-classical` and a short modern run before committing to the full run.
+
 ## Checkpoints
 
 These are the intended commit/push points:

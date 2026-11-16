@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
@@ -37,9 +38,7 @@ class SpectrogramDataset(Dataset):
             image = log_mel_spectrogram(row["path"])
             if cache_path:
                 np.save(cache_path, image)
-        image = torch.from_numpy(image).unsqueeze(0)
-        image = torch.nn.functional.interpolate(image.unsqueeze(0), size=(224, 224), mode="bilinear").squeeze(0)
-        image = ((image + 80.0) / 80.0).clamp(0.0, 1.0).repeat(3, 1, 1)
+        image = _prepare_spectrogram(image)
         return image, torch.tensor(int(row["label"]), dtype=torch.long)
 
 
@@ -47,6 +46,40 @@ def build_model(pretrained: bool = True) -> nn.Module:
     model = resnet18(weights=ResNet18_Weights.DEFAULT if pretrained else None)
     model.fc = nn.Linear(model.fc.in_features, 2)
     return model
+
+
+def _prepare_spectrogram(image: np.ndarray) -> torch.Tensor:
+    image_tensor = torch.from_numpy(image).unsqueeze(0)
+    image_tensor = torch.nn.functional.interpolate(
+        image_tensor.unsqueeze(0), size=(224, 224), mode="bilinear"
+    ).squeeze(0)
+    return ((image_tensor + 80.0) / 80.0).clamp(0.0, 1.0).repeat(3, 1, 1)
+
+
+def predict_files(model_path: str | Path, audio_paths: list[str | Path]) -> pd.DataFrame:
+    """Predict human/AI labels for uploaded audio files using ResNet-18."""
+    if not audio_paths:
+        raise ValueError("At least one audio file is required.")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    checkpoint = torch.load(model_path, map_location=device)
+    model = build_model(pretrained=False).to(device)
+    model.load_state_dict(checkpoint["model"])
+    model.eval()
+    probabilities = []
+    with torch.no_grad():
+        for path in audio_paths:
+            image = _prepare_spectrogram(log_mel_spectrogram(path))
+            probability = torch.softmax(model(image.unsqueeze(0).to(device)), dim=1)[0, 1]
+            probabilities.append(float(probability.cpu()))
+    probabilities_array = np.asarray(probabilities)
+    return pd.DataFrame(
+        {
+            "filename": [Path(path).name for path in audio_paths],
+            "ai_probability": probabilities_array,
+            "prediction": np.where(probabilities_array >= 0.5, "AI-generated", "Human"),
+        }
+    )
 
 
 def run(

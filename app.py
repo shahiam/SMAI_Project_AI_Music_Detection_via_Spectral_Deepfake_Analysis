@@ -9,7 +9,8 @@ import tempfile
 import pandas as pd
 import streamlit as st
 
-from music_detection.classical import predict_files
+from music_detection.classical import predict_files as predict_classical_files
+from music_detection.modern import predict_files as predict_modern_files
 
 
 if not st.runtime.exists():
@@ -124,7 +125,7 @@ st.markdown(
       <div class="eyebrow">AI music detection · spectral analysis</div>
       <h1>Find the signal<br>inside the <span class="accent">sound.</span></h1>
       <p>Upload an audio track to inspect its spectral fingerprint. Our research pipeline is designed to surface the subtle artifacts that separate generated music from human performance.</p>
-      <div class="hero-meta"><div>MODEL <span>RESNET-18 + SVM</span></div><div>INPUT <span>WAV / MP3</span></div></div>
+      <div class="hero-meta"><div>MODELS <span>SVM / RESNET-18</span></div><div>INPUT <span>WAV / MP3</span></div></div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -145,6 +146,12 @@ with left:
         )
     with upload_step:
         st.markdown('<div class="step" style="text-align: center;">01 / INPUT</div>', unsafe_allow_html=True)
+    selected_model = st.radio(
+        "Choose detection model",
+        ["Classical SVM", "Modern ResNet-18"],
+        horizontal=True,
+        help="SVM uses MFCC and spectral features. ResNet-18 uses log-Mel spectrograms.",
+    )
     st.markdown(
         """
         <div class="panel">
@@ -164,9 +171,11 @@ with left:
                 st.write(audio_file.name)
                 st.audio(audio_file)
         if st.button("Analyze selected files  →", use_container_width=True, type="primary"):
-            model_path = Path("runs/classical/svm.joblib")
+            use_modern = selected_model == "Modern ResNet-18"
+            model_path = Path("runs/m6_modern/resnet18.pt" if use_modern else "runs/m6_classical/svm.joblib")
             if not model_path.is_file():
-                st.error("No trained model found. Run `make classical` first, then upload the files again.")
+                command = "Windows training command" if use_modern else "make m6-classical"
+                st.error(f"Model artifact not found. Run the {command} first, then upload the files again.")
             else:
                 with tempfile.TemporaryDirectory(prefix="spectraguard-") as temp_dir:
                     paths = []
@@ -175,7 +184,9 @@ with left:
                         path.write_bytes(audio_file.getbuffer())
                         paths.append(path)
                     with st.spinner("Extracting spectral features and classifying files..."):
-                        results = predict_files(model_path, paths)
+                        predict = predict_modern_files if use_modern else predict_classical_files
+                        results = predict(model_path, paths)
+                results.insert(1, "model", selected_model)
                 results["ai_probability"] = (results["ai_probability"] * 100).round(2)
                 st.session_state["analysis_results"] = results
     else:

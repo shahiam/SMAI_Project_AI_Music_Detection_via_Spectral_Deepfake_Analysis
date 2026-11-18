@@ -41,3 +41,13 @@ def load_manifest(manifest_path: str | Path) -> pd.DataFrame:
 def load_audio(path: str | Path, sample_rate: int = 44_100, duration: float | None = 5.0):
     """Load mono audio at the project sample rate."""
     return librosa.load(path, sr=sample_rate, mono=True, duration=duration)
+
+
+def load_full_audio(path: str | Path, sample_rate: int = 44_100):
+    """Load the complete mono audio file without duration truncation."""
+    return librosa.load(path, sr=sample_rate, mono=True, duration=None)
+
+
+def get_audio_duration(path: str | Path) -> float:
+    """Get duration of audio file in seconds."""
+    return float(librosa.get_duration(path=path))

@@ -1,6 +1,6 @@
-# AI-Generated Music Detection via Spectral Deepfake Analysis
+# Sarcospectus: AI-Generated Music Detection via Spectral Deepfake Analysis
 
-Project proposal implementation for SMAI, Team Sarcosuchus.
+Project implementation for SMAI, Team Sarcosuchus.
 
 ## Mid-evaluation status
 
@@ -121,3 +121,6 @@ app.py            dark-themed upload dashboard shell
 - The same log-Mel configuration is used by both branches where applicable.
 - Metrics are generated from held-out predictions, not training output.
 - Demo data is for pipeline validation only; it is not evidence for the research hypothesis.
+
+## Run command windows:
+.\.venv-win\Scripts\streamlit.exe run app.py

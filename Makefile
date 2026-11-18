@@ -18,7 +18,7 @@ M6_MANIFEST ?= data/m6_manifest.csv
 .PHONY: help install test demo classical modern extract-m6 m6-manifest m6-classical m6-modern m6-train train dashboard all clean
 
 help:
-	@echo "SpectraGuard project commands:"
+	@echo "Sarcospectus project commands:"
 	@echo "  make install       Install Python dependencies and this package"
 	@echo "  make test          Run the test suite"
 	@echo "  make demo          Generate the small smoke-test dataset"

@@ -1,13 +1,25 @@
+# modules + run caches
+
 .venv/
 __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+
+# data
+
 data/demo/
 data/M6_database.tar.gz
 data/M6_database/
 data/m6_manifest.csv
+
+# run + GUI host
+
 runs/
 runs/m6_*/
 .streamlit/
+
+# Mac specific
+
 local.mk
+.DS_Store

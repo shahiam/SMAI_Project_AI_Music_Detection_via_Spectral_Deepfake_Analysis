@@ -10,3 +10,4 @@ data/m6_manifest.csv
 runs/
 runs/m6_*/
 .streamlit/
+local.mk

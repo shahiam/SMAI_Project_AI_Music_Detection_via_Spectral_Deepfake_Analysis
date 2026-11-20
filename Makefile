@@ -1,21 +1,32 @@
 # Use python3 in WSL/Linux when the `python` alias is unavailable.
+# Only used to create a new virtual environment; override with `make PYTHON=py` on Windows.
 PYTHON ?= $(shell command -v python 2>/dev/null || command -v python3 2>/dev/null || echo python3)
 
+# Optional per-machine settings (gitignored). Example local.mk:
+#   VENV := ../../SMAI_env
+-include local.mk
+
+# Virtual environment used for every command. Defaults to a project-local .venv.
+# Point it at an existing environment with `make VENV=../../SMAI_env <target>` or in local.mk.
+VENV ?= .venv
+
 ifeq ($(OS),Windows_NT)
-VENV_PYTHON := .venv/Scripts/python.exe
+VENV_PYTHON := $(VENV)/Scripts/python.exe
 else
-VENV_PYTHON := .venv/bin/python
+VENV_PYTHON := $(VENV)/bin/python
 endif
 
-PIP := $(VENV_PYTHON) -m pip
-STREAMLIT := $(VENV_PYTHON) -m streamlit
+# Paths are quoted so folders containing spaces work.
+PY := "$(VENV_PYTHON)"
+PIP := $(PY) -m pip
+STREAMLIT := $(PY) -m streamlit
 
 DEMO_MANIFEST := data/demo/manifest.csv
 M6_ARCHIVE ?= data/M6_database.tar.gz
 M6_ROOT ?= data/M6_database
 M6_MANIFEST ?= data/m6_manifest.csv
 
-.PHONY: help install test demo classical modern extract-m6 m6-manifest m6-classical m6-modern m6-train train dashboard all clean
+.PHONY: help venv install test demo classical modern extract-m6 m6-manifest m6-classical m6-modern m6-train train dashboard all clean
 
 help:
 	@echo "Sarcospectus project commands:"
@@ -31,43 +42,50 @@ help:
 	@echo "  make dashboard     Launch the Streamlit dashboard"
 	@echo "  make all           Install, test, and run both demo branches"
 	@echo ""
+	@echo "Virtual environment in use: $(VENV)"
+	@echo "  Use an existing one:  make install VENV=../../SMAI_env  (or set VENV in local.mk)"
+	@echo ""
 	@echo "M6 example: make m6-manifest M6_ROOT=data/M6_database"
 
-$(VENV_PYTHON):
-	@echo "Creating project virtual environment at .venv..."
-	$(PYTHON) -m venv .venv
-	@echo "Virtual environment ready."
+# Creates $(VENV) only if it does not already contain a virtual environment.
+# (The Python fallback also handles absolute VENV paths containing spaces.)
+venv:
+ifneq ($(wildcard $(VENV)/pyvenv.cfg),)
+	@echo "Using existing virtual environment at $(VENV)"
+else
+	@"$(PYTHON)" -c "import os, sys, venv; p = sys.argv[1]; exists = os.path.isfile(os.path.join(p, 'pyvenv.cfg')); print(('Using existing virtual environment at ' if exists else 'Creating virtual environment at ') + p); exists or venv.create(p, with_pip=True)" "$(VENV)"
+endif
 
-install: $(VENV_PYTHON)
+install: venv
 	@echo "Installing project dependencies..."
 	$(PIP) install -r requirements.txt
 	$(PIP) install -e .
 
 test: install
-	$(VENV_PYTHON) -m pytest -q
+	$(PY) -m pytest -q
 
 demo: install
-	$(VENV_PYTHON) -m music_detection.cli make-demo-data --output data/demo
+	$(PY) -m music_detection.cli make-demo-data --output "data/demo"
 
 classical: demo
-	$(VENV_PYTHON) -m music_detection.cli classical --manifest $(DEMO_MANIFEST) --output runs/classical
+	$(PY) -m music_detection.cli classical --manifest "$(DEMO_MANIFEST)" --output "runs/classical"
 
 modern: demo
-	$(VENV_PYTHON) -m music_detection.cli modern --manifest $(DEMO_MANIFEST) --output runs/modern --epochs 1 --no-pretrained
+	$(PY) -m music_detection.cli modern --manifest "$(DEMO_MANIFEST)" --output "runs/modern" --epochs 1 --no-pretrained
 
 m6-manifest:
-	$(VENV_PYTHON) -m music_detection.cli build-m6-manifest --root $(M6_ROOT) --output $(M6_MANIFEST) --include-duration
+	$(PY) -m music_detection.cli build-m6-manifest --root "$(M6_ROOT)" --output "$(M6_MANIFEST)" --include-duration
 
 m6-classical: install
-	$(VENV_PYTHON) -m music_detection.cli classical --manifest $(M6_MANIFEST) --output runs/m6_classical
+	$(PY) -m music_detection.cli classical --manifest "$(M6_MANIFEST)" --output "runs/m6_classical"
 
 m6-modern: install
-	$(VENV_PYTHON) -m music_detection.cli modern --manifest $(M6_MANIFEST) --output runs/m6_modern --epochs 10
+	$(PY) -m music_detection.cli modern --manifest "$(M6_MANIFEST)" --output "runs/m6_modern" --epochs 10
 
 m6-train: m6-classical m6-modern
 
 extract-m6:
-	tar -xzf $(M6_ARCHIVE) -C data
+	tar -xzf "$(M6_ARCHIVE)" -C data
 
 train: classical modern
 
@@ -77,4 +95,4 @@ dashboard: install
 all: install test train
 
 clean:
-	$(VENV_PYTHON) -c "from pathlib import Path; [p.unlink() for p in Path('.').rglob('*.pyc')]; print('Removed Python bytecode')"
+	$(PY) -c "from pathlib import Path; [p.unlink() for p in Path('.').rglob('*.pyc')]; print('Removed Python bytecode')"

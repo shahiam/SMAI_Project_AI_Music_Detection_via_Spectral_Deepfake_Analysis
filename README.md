@@ -53,6 +53,12 @@ automatically uses `python3` on WSL/Linux when `python` is unavailable. On Windo
 it with `make PYTHON=py`. It deliberately does not download the approximately 28 GB M6 archive
 automatically.
 
+To reuse an existing virtual environment instead of `.venv`, pass its path as `VENV`, e.g.
+`make install VENV=../../SMAI_env` (Windows: `make install PYTHON=py VENV=.venv-win`). To avoid
+typing it each time, put `VENV := ../../SMAI_env` in a `local.mk` file in the repo root; it is
+gitignored, so each teammate can keep their own. All paths are quoted, so project and environment
+folders containing spaces are supported.
+
 For M6, create a CSV with columns `path,label,track_id,split`, where `label` is `0` for human
 and `1` for AI-generated. Keep all segments from one source track in one split to prevent
 leakage. Paths may be absolute or relative to the manifest location.

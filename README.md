@@ -91,6 +91,22 @@ The 10-epoch ResNet run is expected to take hours on an 8 GB laptop GPU, dependi
 speed and the number of M6 clips; the SVM feature extraction is CPU-heavy and may also take
 hours. Start with `make m6-classical` and a short modern run before committing to the full run.
 
+## Band-limited experiment (main result)
+
+M6 AI generators output audio at 16 kHz (AMG) or 32 kHz (MG, MGPT), while human clips are
+22-48 kHz. At 44.1 kHz the empty high band alone reveals the label: a rule that uses only the
+native sample rate scores F1 0.94 on the test split. The main experiment therefore resamples all
+audio to 16 kHz (`--sample-rate 16000`, now the default), trains on random 5 s crops with
+augmentation, and evaluates full tracks (mean over 5 s windows). Thresholds and the ensemble
+weight are tuned on validation, and the dashboard loads them from the model files.
+
+```powershell
+make sr-baseline   # shortcut check -> runs/sr_baseline.json
+make m6-bl         # band-limited SVM/RF, augmented ResNet-18, validated ensemble
+```
+
+See `docs/mid_eval.md` for results and the mid-evaluation guide.
+
 ## Checkpoints
 
 These are the intended commit/push points:

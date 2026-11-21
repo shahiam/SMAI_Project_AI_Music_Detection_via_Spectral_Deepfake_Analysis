@@ -14,6 +14,9 @@ from .modern import (
     predict_files as predict_modern_files,
     run as run_modern,
 )
+from .evaluation import fit_ensemble, sample_rate_baseline
+from .data import load_manifest
+from .features import BANDLIMITED_SAMPLE_RATE
 from .m6_manifest import build_manifest
 from .synthetic import create_demo
 
@@ -35,13 +38,21 @@ def main() -> None:
         help="Criterion for tuning decision threshold",
     )
     classical.add_argument("--target-fpr", type=float, default=0.02, help="Target max FPR for low_fpr criterion")
+    classical.add_argument(
+        "--sample-rate",
+        type=int,
+        default=BANDLIMITED_SAMPLE_RATE,
+        help="Resample all audio to this rate (16000 removes the M6 bandwidth shortcut; 44100 = original pipeline)",
+    )
+    classical.add_argument("--train-crops", type=int, default=2, help="Random 5 s windows per training clip")
+    classical.add_argument("--jobs", type=int, default=-1, help="Parallel feature-extraction processes")
 
     modern = subparsers.add_parser("modern", help="Train and evaluate ResNet-18 modern branch")
     modern.add_argument("--manifest", required=True)
     modern.add_argument("--output", required=True)
     modern.add_argument("--epochs", type=int, default=5)
-    modern.add_argument("--batch-size", type=int, default=16)
-    modern.add_argument("--workers", type=int, default=2)
+    modern.add_argument("--batch-size", type=int, default=32)
+    modern.add_argument("--workers", type=int, default=8)
     modern.add_argument("--cache-dir")
     modern.add_argument("--resume")
     modern.add_argument("--no-pretrained", action="store_true")
@@ -62,6 +73,25 @@ def main() -> None:
         help="Criterion for tuning decision threshold on validation set",
     )
     modern.add_argument("--target-fpr", type=float, default=0.02, help="Target max FPR for low_fpr criterion")
+    modern.add_argument(
+        "--sample-rate",
+        type=int,
+        default=BANDLIMITED_SAMPLE_RATE,
+        help="Resample all audio to this rate (16000 removes the M6 bandwidth shortcut; 44100 = original pipeline)",
+    )
+    modern.add_argument("--lr", type=float, default=1e-4)
+    modern.add_argument("--seed", type=int, default=42)
+
+    ensemble = subparsers.add_parser("ensemble", help="Fit modern/classical blend weight + threshold on val, report test")
+    ensemble.add_argument("--classical", required=True, help="Classical run directory (with predictions_*.csv)")
+    ensemble.add_argument("--modern", required=True, help="Modern run directory (with predictions_*.csv)")
+    ensemble.add_argument("--output", required=True)
+    ensemble.add_argument("--criterion", default="low_fpr", choices=["low_fpr", "f1", "youden", "cost_sensitive"])
+    ensemble.add_argument("--target-fpr", type=float, default=0.02)
+
+    baseline = subparsers.add_parser("sr-baseline", help="Shortcut check: predict the label from native sample rate only")
+    baseline.add_argument("--manifest", required=True)
+    baseline.add_argument("--output", required=True, help="JSON file to write")
 
     tune = subparsers.add_parser("tune-threshold", help="Tune decision threshold on validation data for an existing model")
     tune.add_argument("--manifest", required=True)
@@ -97,6 +127,9 @@ def main() -> None:
                 args.output,
                 threshold_criterion=args.threshold_criterion,
                 target_fpr=args.target_fpr,
+                sample_rate=args.sample_rate,
+                train_crops=args.train_crops,
+                jobs=args.jobs,
             )
         )
     elif args.command == "modern":
@@ -114,8 +147,19 @@ def main() -> None:
                 audio_augment=args.audio_augment,
                 threshold_criterion=args.threshold_criterion,
                 target_fpr=args.target_fpr,
+                sample_rate=args.sample_rate,
+                learning_rate=args.lr,
+                seed=args.seed,
             )
         )
+    elif args.command == "ensemble":
+        result = fit_ensemble(args.classical, args.modern, args.output, args.criterion, args.target_fpr)
+        print(json.dumps({k: result[k] for k in ("modern_weight", "threshold", "val", "test")}, indent=2))
+    elif args.command == "sr-baseline":
+        result = sample_rate_baseline(load_manifest(args.manifest))
+        Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.output).write_text(json.dumps(result, indent=2), encoding="utf-8")
+        print(json.dumps(result["test"], indent=2))
     elif args.command == "tune-threshold":
         if args.model_type == "modern":
             result = calibrate_checkpoint_threshold(

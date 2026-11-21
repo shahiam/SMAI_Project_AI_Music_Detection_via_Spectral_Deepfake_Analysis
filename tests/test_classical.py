@@ -15,7 +15,7 @@ def test_predict_files_returns_batch_schema(tmp_path: Path, monkeypatch):
     monkeypatch.setattr("music_detection.classical.joblib.load", lambda path: FakeModel())
     monkeypatch.setattr(
         "music_detection.classical.classical_features",
-        lambda path: np.zeros(42, dtype=np.float32),
+        lambda path, **kwargs: np.zeros(42, dtype=np.float32),
     )
 
     results = predict_files(model_path, [tmp_path / "one.wav", tmp_path / "two.wav"])

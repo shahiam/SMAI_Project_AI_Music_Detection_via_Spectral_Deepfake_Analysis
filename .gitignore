@@ -23,3 +23,6 @@ runs/m6_*/
 
 local.mk
 .DS_Store
+
+# private team explainer (PDF + its HTML source and figures)
+docs/explainer/

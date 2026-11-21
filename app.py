@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -26,6 +27,47 @@ if not st.runtime.exists():
                 env=environment,
             )
         )
+
+
+# Which trained models the dashboard serves. Switch with the SARCOSPECTUS_PROFILE env var.
+#   legacy      - original 44.1 kHz M6 models with the hand-set cutoffs (current default)
+#   bandlimited - 16 kHz shortcut-free models; thresholds/ensemble weight tuned on validation
+#                 (better on M6, but misses modern Suno-style covers; kept for later work)
+PROFILES = {
+    "legacy": {
+        "modern": ["runs/m6_modern/resnet18.pt", "runs/modern/resnet18.pt"],
+        "classical": ["runs/m6_classical/svm.joblib", "runs/classical/svm.joblib"],
+        "modern_threshold": 0.70,
+        "classical_threshold": 0.65,
+        "ensemble": {"modern_weight": 0.40, "threshold": 0.55},
+    },
+    "bandlimited": {
+        "modern": ["runs/m6_bl_modern/resnet18.pt"],
+        "classical": ["runs/m6_bl_classical/svm.joblib"],
+        "modern_threshold": None,  # None = use the threshold stored with the model
+        "classical_threshold": None,
+        "ensemble": "runs/m6_bl_ensemble/ensemble.json",
+    },
+}
+ACTIVE_PROFILE = os.environ.get("SARCOSPECTUS_PROFILE", "legacy")
+PROFILE = PROFILES[ACTIVE_PROFILE]
+
+
+def first_existing(kind: str) -> Path:
+    for candidate in PROFILE[kind]:
+        if Path(candidate).is_file():
+            return Path(candidate)
+    return Path(PROFILE[kind][-1])
+
+
+def load_ensemble_config() -> dict | None:
+    """Blend weight + threshold: fixed for legacy, fitted on validation for bandlimited."""
+    config = PROFILE["ensemble"]
+    if isinstance(config, dict):
+        return config
+    if Path(config).is_file():
+        return json.loads(Path(config).read_text(encoding="utf-8"))
+    return None
 
 
 st.set_page_config(
@@ -160,7 +202,7 @@ with left:
         "Choose detection architecture",
         ["Hybrid Ensemble (Modern + Classical)", "Modern ResNet-18", "Classical SVM"],
         horizontal=True,
-        help="Hybrid Ensemble combines spectral deep learning with vocal acoustic features for maximum accuracy across real-world pop and cover tracks.",
+        help="Hybrid Ensemble averages the ResNet-18 and SVM probabilities. The weight and cutoff are fitted on the M6 validation split.",
     )
 
     st.markdown(
@@ -191,14 +233,9 @@ with left:
                 st.audio(audio_file)
 
         if st.button("Analyze selected files  →", use_container_width=True, type="primary"):
-            modern_path = Path("runs/m6_modern/resnet18.pt")
-            classical_path = Path("runs/m6_classical/svm.joblib")
-
-            # Fallback to demo runs if M6 paths missing
-            if not modern_path.is_file():
-                modern_path = Path("runs/modern/resnet18.pt")
-            if not classical_path.is_file():
-                classical_path = Path("runs/classical/svm.joblib")
+            modern_path = first_existing("modern")
+            classical_path = first_existing("classical")
+            ensemble_config = load_ensemble_config()
 
             with tempfile.TemporaryDirectory(prefix="sarcospectus-") as temp_dir:
                 paths = []
@@ -212,14 +249,17 @@ with left:
 
                 with st.spinner(f"Analyzing full track(s) using {selected_model}..."):
                     if selected_model == "Hybrid Ensemble (Modern + Classical)":
-                        # Run both models and blend with optimal weights (40% Modern + 60% Classical, threshold 0.55)
+                        # Weight and cutoff come from the active profile: fixed 0.40/0.55 for legacy,
+                        # fitted on validation (ensemble.json) for bandlimited; 0.5/0.5 if missing.
+                        modern_weight = float(ensemble_config["modern_weight"]) if ensemble_config else 0.5
+                        ens_thresh = float(ensemble_config["threshold"]) if ensemble_config else 0.5
                         m_df = predict_modern_files(
                             modern_path,
                             paths,
                             window_duration=5.0,
                             hop_duration=5.0,
                             aggregation="mean",
-                            threshold=0.70,
+                            threshold=PROFILE["modern_threshold"],
                             detailed=True,
                         )
                         c_df = predict_classical_files(
@@ -228,18 +268,17 @@ with left:
                             window_duration=5.0,
                             hop_duration=5.0,
                             aggregation="mean",
-                            threshold=0.65,
+                            threshold=PROFILE["classical_threshold"],
                             detailed=True,
                         )
 
-                        ens_thresh = 0.55
                         ens_rows = []
                         for i in range(len(m_df)):
                             m_row = m_df.iloc[i]
                             c_row = c_df.iloc[i]
                             m_prob = float(m_row["ai_probability"])
                             c_prob = float(c_row["ai_probability"])
-                            ens_prob = 0.40 * m_prob + 0.60 * c_prob
+                            ens_prob = modern_weight * m_prob + (1.0 - modern_weight) * c_prob
 
                             is_ai = bool(ens_prob >= ens_thresh)
                             pred = "AI-generated" if is_ai else "Human"
@@ -255,7 +294,10 @@ with left:
                             c_segs = c_row["segments"]
                             blended_segs = []
                             for idx in range(min(len(m_segs), len(c_segs))):
-                                s_prob = 0.40 * m_segs[idx]["probability"] + 0.60 * c_segs[idx]["probability"]
+                                s_prob = (
+                                    modern_weight * m_segs[idx]["probability"]
+                                    + (1.0 - modern_weight) * c_segs[idx]["probability"]
+                                )
                                 blended_segs.append(
                                     {
                                         "window_index": idx,
@@ -284,36 +326,37 @@ with left:
                         threshold_used = ens_thresh
 
                     elif selected_model == "Modern ResNet-18":
-                        threshold_used = 0.70  # Calibrated for pop/MP3 robustness
                         detailed_df = predict_modern_files(
                             modern_path,
                             paths,
                             window_duration=5.0,
                             hop_duration=5.0,
                             aggregation="mean",
-                            threshold=threshold_used,
+                            threshold=PROFILE["modern_threshold"],  # None = tuned value stored in the checkpoint
                             detailed=True,
                         )
+                        threshold_used = float(detailed_df["threshold"].iloc[0])
                         detailed_df["filename"] = detailed_df["filename"].map(lambda f: file_name_map.get(f, f))
                         detailed_df.insert(1, "model", "Modern ResNet-18")
 
                     else:  # Classical SVM
-                        threshold_used = 0.65  # Calibrated low-FPR threshold
                         detailed_df = predict_classical_files(
                             classical_path,
                             paths,
                             window_duration=5.0,
                             hop_duration=5.0,
                             aggregation="mean",
-                            threshold=threshold_used,
+                            threshold=PROFILE["classical_threshold"],  # None = tuned value stored with the model
                             detailed=True,
                         )
+                        threshold_used = float(detailed_df["threshold"].iloc[0])
                         detailed_df["filename"] = detailed_df["filename"].map(lambda f: file_name_map.get(f, f))
                         detailed_df.insert(1, "model", "Classical SVM")
 
             st.session_state["analysis_detailed"] = detailed_df
             st.session_state["threshold_used"] = threshold_used
             st.session_state["model_used"] = selected_model
+            st.session_state["model_paths"] = f"{modern_path} · {classical_path}"
     else:
         st.markdown(
             '<div class="hint">Upload audio files · Full-track temporal windowing scans beyond the initial 5 seconds · For research use only</div>',
@@ -371,7 +414,10 @@ with left:
 
         chart_df = timeline_data.set_index("Time (seconds)")["AI Probability (%)"]
         st.area_chart(chart_df, color="#62e4e6")
-        st.caption(f"Decision threshold cutoff: **{st.session_state['threshold_used']*100:.1f}%**.")
+        st.caption(
+            f"Decision threshold cutoff: **{st.session_state['threshold_used']*100:.1f}%** "
+            f"· profile `{ACTIVE_PROFILE}` · models: `{st.session_state.get('model_paths', '')}`"
+        )
 
         with st.expander("View window-by-window details", expanded=False):
             st.dataframe(

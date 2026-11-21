@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from music_detection.m6_manifest import build_manifest
+from music_detection.m6.preprocessing.build_manifest import build_manifest
 
 
 def test_m6_manifest_infers_labels_generators_and_splits(tmp_path: Path):

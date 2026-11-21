@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from music_detection.data import load_manifest
+from music_detection.shared.data.manifest import load_manifest
 
 
 def test_manifest_resolves_relative_paths(tmp_path: Path):

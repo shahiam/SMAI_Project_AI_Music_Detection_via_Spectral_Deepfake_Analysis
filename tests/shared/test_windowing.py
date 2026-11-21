@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from music_detection.features import (
+from music_detection.shared.features.spectral import (
     SAMPLE_RATE,
     classical_features,
     extract_windowed_classical_features,

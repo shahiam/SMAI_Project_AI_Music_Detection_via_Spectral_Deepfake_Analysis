@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from music_detection.metrics import classification_metrics, tune_threshold
+from music_detection.shared.evaluation.metrics import classification_metrics
+from music_detection.shared.tuning.thresholds import tune_threshold
 
 
 def test_classification_metrics_contains_all_keys():

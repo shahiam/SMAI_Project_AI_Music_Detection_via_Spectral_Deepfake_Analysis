@@ -26,7 +26,15 @@ M6_ARCHIVE ?= data/M6_database.tar.gz
 M6_ROOT ?= data/M6_database
 M6_MANIFEST ?= data/m6_manifest.csv
 
-.PHONY: help venv install test demo classical modern extract-m6 m6-manifest m6-classical m6-modern m6-train m6-bl-classical m6-bl-modern m6-bl-ensemble m6-bl sr-baseline train dashboard all clean
+# SONICS (MP3) pipeline. Override SONICS_ROOT in local.mk on other machines (e.g. D:/SONICS on Windows).
+SONICS_ROOT ?= /Volumes/BACKUP/SONICS
+SONICS_MANIFEST ?= data/sonics_manifest.csv
+SONICS_GB ?= 15
+SONICS_JOBS ?= 8
+SONICS_CLIP_RATE ?= 32000
+SONICS_PREP := $(PY) -m music_detection.sonics.preprocessing
+
+.PHONY: help venv install test demo classical modern extract-m6 m6-manifest m6-classical m6-modern m6-train m6-bl-classical m6-bl-modern m6-bl-ensemble m6-bl sr-baseline sonics-plan sonics-fakes sonics-reals sonics-status sonics-profile sonics-clips sonics-profile-clips sonics-sr-baseline sonics-classical sonics-modern sonics-ensemble sonics-train train dashboard all clean
 
 help:
 	@echo "Sarcospectus project commands:"
@@ -40,6 +48,15 @@ help:
 	@echo "  make m6-train      Train both branches on the M6 manifest (original 44.1 kHz pipeline)"
 	@echo "  make m6-bl         Band-limited (16 kHz) classical + augmented CNN + validated ensemble"
 	@echo "  make sr-baseline   Shortcut check: classify by native sample rate only"
+	@echo ""
+	@echo "SONICS pipeline (data in SONICS_ROOT=$(SONICS_ROOT)):"
+	@echo "  make sonics-plan     Download metadata, choose a stratified balanced subset (SONICS_GB per class)"
+	@echo "  make sonics-fakes    Download the selected AI songs (Hugging Face zip parts)"
+	@echo "  make sonics-reals    Download the matching human songs from YouTube (SONICS_JOBS parallel)"
+	@echo "  make sonics-status   Progress against the plan"
+	@echo "  make sonics-profile  Sample rate / codec / bitrate / bandwidth per class (raw songs)"
+	@echo "  make sonics-clips    Build identical-format clips + data/sonics_manifest.csv"
+	@echo "  make sonics-train    Classical + modern + validated ensemble on the SONICS manifest"
 	@echo "  make train         Run both demo training branches"
 	@echo "  make dashboard     Launch the Streamlit dashboard"
 	@echo "  make all           Install, test, and run both demo branches"
@@ -101,6 +118,43 @@ m6-bl: m6-bl-classical m6-bl-modern m6-bl-ensemble
 
 sr-baseline: install
 	$(PY) -m music_detection.cli sr-baseline --manifest "$(M6_MANIFEST)" --output "runs/sr_baseline.json"
+
+# ---------------- SONICS (MP3) pipeline ----------------
+# Downloads are long: on macOS prefix with caffeinate, e.g. `caffeinate -i make sonics-reals`.
+sonics-plan:
+	$(SONICS_PREP).fetch plan --root "$(SONICS_ROOT)" --gb-per-class $(SONICS_GB)
+
+sonics-fakes:
+	$(SONICS_PREP).fetch fakes --root "$(SONICS_ROOT)"
+
+sonics-reals:
+	$(SONICS_PREP).fetch reals --root "$(SONICS_ROOT)" --jobs $(SONICS_JOBS)
+
+sonics-status:
+	$(SONICS_PREP).fetch status --root "$(SONICS_ROOT)"
+
+sonics-profile:
+	$(SONICS_PREP).profile_audio --dir fake="$(SONICS_ROOT)/fake_songs" --dir real="$(SONICS_ROOT)/real_songs" --csv data/sonics_profile_raw.csv
+
+sonics-clips:
+	$(SONICS_PREP).prepare_clips --sonics-root "$(SONICS_ROOT)" --real-dir "$(SONICS_ROOT)/real_songs" --out-dir "$(SONICS_ROOT)/clips" --manifest "$(SONICS_MANIFEST)" --balance --workers $(SONICS_JOBS) --sample-rate $(SONICS_CLIP_RATE)
+
+sonics-profile-clips:
+	$(SONICS_PREP).profile_audio --dir fake="$(SONICS_ROOT)/clips/fake" --dir real="$(SONICS_ROOT)/clips/real" --csv data/sonics_profile_clips.csv
+
+sonics-sr-baseline: install
+	$(PY) -m music_detection.cli sr-baseline --manifest "$(SONICS_MANIFEST)" --output "runs/sonics_sr_baseline.json"
+
+sonics-classical: install
+	$(PY) -m music_detection.cli classical --manifest "$(SONICS_MANIFEST)" --output "runs/sonics_classical" --sample-rate 16000
+
+sonics-modern: install
+	$(PY) -m music_detection.cli modern --manifest "$(SONICS_MANIFEST)" --output "runs/sonics_modern" --sample-rate 16000 --epochs 12 --augment --audio-augment
+
+sonics-ensemble: install
+	$(PY) -m music_detection.cli ensemble --classical "runs/sonics_classical" --modern "runs/sonics_modern" --output "runs/sonics_ensemble"
+
+sonics-train: sonics-classical sonics-modern sonics-ensemble
 
 extract-m6:
 	tar -xzf "$(M6_ARCHIVE)" -C data

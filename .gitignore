@@ -12,6 +12,9 @@ data/demo/
 data/M6_database.tar.gz
 data/M6_database/
 data/m6_manifest.csv
+data/m6_small.csv
+data/sonics_manifest.csv
+data/sonics_profile_*.csv
 
 # run + GUI host
 

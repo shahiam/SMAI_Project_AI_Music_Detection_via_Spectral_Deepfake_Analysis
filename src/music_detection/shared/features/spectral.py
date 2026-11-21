@@ -1,3 +1,4 @@
+"""Log-Mel spectrograms, MFCC/centroid features, windowing and the band-limited sample rate."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -5,7 +6,7 @@ from typing import Any
 import numpy as np
 import librosa
 
-from .data import load_audio, load_full_audio
+from ..data.audio import load_audio, load_full_audio
 
 SAMPLE_RATE = 44_100
 N_FFT = 2048

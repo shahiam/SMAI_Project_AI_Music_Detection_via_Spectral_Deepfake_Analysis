@@ -1,24 +1,20 @@
+"""Command-line entry point for both pipelines: python -m music_detection.cli <command> ..."""
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
 
-from .classical import (
-    calibrate_svm_threshold,
-    predict_files as predict_classical_files,
-    run as run_classical,
-)
-from .modern import (
-    calibrate_checkpoint_threshold,
-    predict_files as predict_modern_files,
-    run as run_modern,
-)
-from .evaluation import fit_ensemble, sample_rate_baseline
-from .data import load_manifest
-from .features import BANDLIMITED_SAMPLE_RATE
-from .m6_manifest import build_manifest
-from .synthetic import create_demo
+from .m6.preprocessing.build_manifest import build_manifest
+from .m6.preprocessing.demo_data import create_demo
+from .shared.data.manifest import load_manifest
+from .shared.evaluation.shortcut_checks import sample_rate_baseline
+from .shared.features.spectral import BANDLIMITED_SAMPLE_RATE
+from .shared.output.predict import predict_classical_files, predict_modern_files
+from .shared.training.classical import run as run_classical
+from .shared.training.modern import run as run_modern
+from .shared.tuning.calibrate import calibrate_checkpoint_threshold, calibrate_svm_threshold
+from .shared.tuning.ensemble import fit_ensemble
 
 
 def main() -> None:

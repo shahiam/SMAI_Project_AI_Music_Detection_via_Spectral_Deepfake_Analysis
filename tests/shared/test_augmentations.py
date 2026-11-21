@@ -2,7 +2,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from music_detection.augmentations import (
+from music_detection.shared.features.augmentations import (
     AudioAugmentor,
     additive_noise,
     mp3_compression,

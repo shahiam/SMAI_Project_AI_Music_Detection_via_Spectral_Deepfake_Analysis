@@ -1,3 +1,4 @@
+"""Modern branch: ResNet-18 (ImageNet weights) fine-tuned on log-Mel spectrograms of random crops."""
 from __future__ import annotations
 
 import json
@@ -12,25 +13,20 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision.models import ResNet18_Weights, resnet18
-import matplotlib.pyplot as plt
 
-from .augmentations import AudioAugmentor
-from .data import load_manifest, load_segment, native_duration
-from .evaluation import (
+from ..data.audio import load_segment, native_duration
+from ..data.manifest import load_manifest
+from ..evaluation.metrics import save_metrics
+from ..evaluation.track_level import (
     aggregate_clip_probabilities,
     build_window_index,
     cache_key,
     save_predictions,
     summarize,
 )
-from .features import (
-    BANDLIMITED_SAMPLE_RATE,
-    SAMPLE_RATE,
-    _pad_audio,
-    extract_windowed_spectrograms,
-    log_mel_spectrogram,
-)
-from .metrics import save_metrics, tune_threshold
+from ..features.augmentations import AudioAugmentor
+from ..features.spectral import BANDLIMITED_SAMPLE_RATE, _pad_audio, log_mel_spectrogram
+from ..tuning.thresholds import tune_threshold
 
 
 class RandomCropDataset(Dataset):
@@ -173,154 +169,6 @@ def _prepare_spectrogram(image: np.ndarray) -> torch.Tensor:
         image_tensor.unsqueeze(0), size=(224, 224), mode="bilinear"
     ).squeeze(0)
     return ((image_tensor + 80.0) / 80.0).clamp(0.0, 1.0).repeat(3, 1, 1)
-
-
-def predict_files(
-    model_path: str | Path,
-    audio_paths: list[str | Path],
-    window_duration: float = 5.0,
-    hop_duration: float = 5.0,
-    aggregation: str = "mean",
-    threshold: float | None = None,
-    detailed: bool = False,
-) -> pd.DataFrame:
-    """Predict human/AI labels for uploaded audio files using ResNet-18 with full-track window aggregation."""
-    if not audio_paths:
-        raise ValueError("At least one audio file is required.")
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    checkpoint = torch.load(model_path, map_location=device)
-    sample_rate = int(checkpoint.get("sample_rate", SAMPLE_RATE))
-    model = build_model(pretrained=False).to(device)
-    model.load_state_dict(checkpoint["model"])
-    model.eval()
-
-    # Determine calibrated threshold
-    if threshold is None:
-        threshold = float(checkpoint.get("threshold", checkpoint.get("metrics", {}).get("threshold", 0.5)))
-    cutoff = float(threshold)
-
-    filenames = []
-    aggregated_probabilities = []
-    predictions = []
-    confidences = []
-    flagged_window_counts = []
-    total_window_counts = []
-    all_segments = []
-
-    with torch.no_grad():
-        for path in audio_paths:
-            path_obj = Path(path)
-            filenames.append(path_obj.name)
-
-            try:
-                window_specs = extract_windowed_spectrograms(
-                    path_obj,
-                    window_duration=window_duration,
-                    hop_duration=hop_duration,
-                    sr=sample_rate,
-                )
-                tensors = [_prepare_spectrogram(w["spectrogram"]) for w in window_specs]
-                batch = torch.stack(tensors).to(device)
-                window_probs = torch.softmax(model(batch), dim=1)[:, 1].cpu().numpy()
-            except Exception:
-                # Fallback for mock objects or single-chunk
-                spec = log_mel_spectrogram(path_obj, sr=sample_rate)
-                tensor = _prepare_spectrogram(spec).unsqueeze(0).to(device)
-                window_probs = torch.softmax(model(tensor), dim=1)[:, 1].cpu().numpy()
-                window_specs = [{"start_sec": 0.0, "end_sec": window_duration, "window_index": 0}]
-
-            if aggregation == "mean":
-                agg_prob = float(np.mean(window_probs))
-            elif aggregation == "median":
-                agg_prob = float(np.median(window_probs))
-            elif aggregation == "max":
-                agg_prob = float(np.max(window_probs))
-            elif aggregation == "min":
-                agg_prob = float(np.min(window_probs))
-            else:
-                agg_prob = float(np.mean(window_probs))
-
-            aggregated_probabilities.append(agg_prob)
-            is_ai = bool(agg_prob >= cutoff)
-            predictions.append("AI-generated" if is_ai else "Human")
-
-            if agg_prob >= cutoff:
-                conf = (agg_prob - cutoff) / max(1.0 - cutoff, 1e-6)
-            else:
-                conf = (cutoff - agg_prob) / max(cutoff, 1e-6)
-            confidences.append(float(np.clip(conf, 0.0, 1.0)))
-
-            flagged_count = int(np.sum(window_probs >= cutoff))
-            flagged_window_counts.append(flagged_count)
-            total_window_counts.append(len(window_probs))
-
-            segments = [
-                {
-                    "window_index": i,
-                    "start_sec": w["start_sec"],
-                    "end_sec": w["end_sec"],
-                    "probability": float(window_probs[i]),
-                    "flagged": bool(window_probs[i] >= cutoff),
-                }
-                for i, w in enumerate(window_specs)
-            ]
-            all_segments.append(segments)
-
-    probabilities_array = np.asarray(aggregated_probabilities)
-    if not detailed:
-        return pd.DataFrame(
-            {
-                "filename": filenames,
-                "ai_probability": probabilities_array,
-                "prediction": predictions,
-            }
-        )
-
-    return pd.DataFrame(
-        {
-            "filename": filenames,
-            "ai_probability": probabilities_array,
-            "prediction": predictions,
-            "confidence": np.asarray(confidences),
-            "flagged_windows": flagged_window_counts,
-            "total_windows": total_window_counts,
-            "threshold": [cutoff] * len(filenames),
-            "segments": all_segments,
-        }
-    )
-
-
-def calibrate_checkpoint_threshold(
-    model_path: str | Path,
-    manifest_path: str | Path,
-    split: str = "val",
-    criterion: str = "low_fpr",
-    target_fpr: float = 0.02,
-    batch_size: int = 64,
-    workers: int = 0,
-    cache_dir: str | Path | None = None,
-) -> dict[str, Any]:
-    """Re-tune the decision threshold of an existing checkpoint on track-level scores."""
-    manifest = load_manifest(manifest_path)
-    frame = manifest[manifest["split"] == split]
-    if frame.empty:
-        frame = manifest[manifest["split"] == "train"]
-    frame = frame.reset_index(drop=True)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    checkpoint = torch.load(model_path, map_location=device)
-    sample_rate = int(checkpoint.get("sample_rate", SAMPLE_RATE))
-    model = build_model(pretrained=False).to(device)
-    model.load_state_dict(checkpoint["model"])
-
-    cache = Path(cache_dir) if cache_dir else Path(model_path).parent / "window_cache" / split
-    probabilities = track_probabilities(model, frame, device, sample_rate, cache, batch_size, workers)
-    tuning = tune_threshold(frame["label"].to_numpy(), probabilities, criterion=criterion, target_fpr=target_fpr)
-    checkpoint["threshold"] = float(tuning["optimal_threshold"])
-    checkpoint["threshold_tuning"] = {k: v for k, v in tuning.items() if k != "threshold_curve"}
-    torch.save(checkpoint, model_path)
-    return tuning
 
 
 def run(
@@ -525,37 +373,3 @@ def run(
     )
     print(f"Test metrics (tuned threshold {best_threshold:.3f}): {metrics_tuned}", flush=True)
     return metrics_tuned
-
-
-def save_gradcam(
-    model: nn.Module,
-    image: torch.Tensor,
-    output_path: str | Path,
-    target_layer: nn.Module | None = None,
-) -> None:
-    """Save a Grad-CAM heatmap for the predicted class of one spectrogram."""
-    layer = target_layer or model.layer4[-1]
-    activations, gradients = [], []
-    forward_hook = layer.register_forward_hook(lambda _, __, value: activations.append(value))
-    backward_hook = layer.register_full_backward_hook(lambda _, __, value: gradients.append(value[0]))
-    try:
-        model.zero_grad(set_to_none=True)
-        logits = model(image.unsqueeze(0))
-        logits[0, logits.argmax(dim=1)].backward()
-        weights = gradients[0].mean(dim=(2, 3), keepdim=True)
-        heatmap = torch.relu((weights * activations[0]).sum(dim=1)).squeeze().detach().cpu().numpy()
-        heatmap = (heatmap - heatmap.min()) / (heatmap.max() - heatmap.min() + 1e-8)
-        plt.imsave(output_path, heatmap, cmap="magma")
-    finally:
-        forward_hook.remove()
-        backward_hook.remove()
-
-
-def main() -> None:
-    from .cli import main as cli_main
-
-    cli_main()
-
-
-if __name__ == "__main__":
-    main()

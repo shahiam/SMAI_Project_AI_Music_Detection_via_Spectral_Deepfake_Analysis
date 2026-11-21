@@ -123,23 +123,54 @@ repository. Do not claim a metric until it has been produced on the held-out M6 
 
 ## Project layout
 
+Both pipelines share one implementation (same architecture); only preprocessing is dataset-specific.
+
 ```text
 src/music_detection/
-  cli.py          command-line entry points
-  data.py         manifest validation, split handling, audio loading
-  features.py     log-Mel, MFCC, and spectral-centroid extraction
-  classical.py    SVM training and evaluation
-  modern.py       ResNet-18 training, evaluation, and Grad-CAM
-  synthetic.py    deterministic demo dataset generator
-tests/            focused smoke tests
-docs/mid_eval.md  presentation-ready speaking notes and work plan
-app.py            dark-themed upload dashboard shell
+  cli.py                        command-line entry point (python -m music_detection.cli <command>)
+  shared/                       used by the M6 and SONICS pipelines
+    data/        manifest.py    manifest contract + validation (path, label, track_id, split)
+                 audio.py       mono/resampled loading, segment reads, durations
+    features/    spectral.py    log-Mel, MFCC + centroid, windowing, band-limited sample rate
+                 augmentations.py  volume, noise, MP3, pitch, stretch, SpecAugment
+    training/    classical.py   SVM (+ Random Forest) on 42 MFCC/centroid features
+                 modern.py      ResNet-18 on log-Mel spectrograms (random crops, augmentation)
+    tuning/      thresholds.py  decision-threshold selection (low-FPR, F1, Youden, cost)
+                 calibrate.py   re-tune the threshold of an existing model (tune-threshold command)
+                 ensemble.py    validated modern/classical blend weight (ensemble command)
+    evaluation/  metrics.py     metrics.json + confusion matrix
+                 track_level.py window index, per-clip aggregation, per-generator breakdown
+                 shortcut_checks.py  sample-rate-only baseline (sr-baseline command)
+    output/      predict.py     full-track prediction (predict command, dashboard)
+                 gradcam.py     Grad-CAM heatmaps
+                 dashboard.py   Streamlit dashboard (launched via app.py)
+  m6/preprocessing/
+                 build_manifest.py  M6 manifest (build-m6-manifest command)
+                 demo_data.py       synthetic smoke-test data (make-demo-data command)
+  sonics/                       SONICS pipeline, see src/music_detection/sonics/README.md
+    preprocessing/  fetch.py, download_youtube.py, prepare_clips.py, profile_audio.py, utils.py
+tests/
+  shared/  m6/  sonics/         unit tests mirroring the package layout
+app.py                          launcher: `streamlit run app.py` / `make dashboard`
+docs/                           mid-evaluation notes and slides
 ```
+
+All CLI commands, Makefile targets and run folders are unchanged by this layout. M6 runs write to
+`runs/m6_*`, SONICS runs to `runs/sonics_*`.
+
+## SONICS pipeline (MP3, Suno/Udio)
+
+```bash
+make sonics-plan && make sonics-fakes && make sonics-reals   # data on /Volumes/BACKUP/SONICS
+make sonics-profile && make sonics-clips && make sonics-train
+```
+
+See `src/music_detection/sonics/README.md` for details and the shortcut checks.
 
 ## Scientific safeguards
 
 - The split is track-aware and can be supplied explicitly in the manifest.
-- Audio is resampled to 44.1 kHz and converted to mono.
+- Audio is converted to mono and resampled (16 kHz by default, the band-limited pipeline; 44.1 kHz = original).
 - The same log-Mel configuration is used by both branches where applicable.
 - Metrics are generated from held-out predictions, not training output.
 - Demo data is for pipeline validation only; it is not evidence for the research hypothesis.

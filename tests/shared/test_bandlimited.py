@@ -3,8 +3,8 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from music_detection.data import load_segment
-from music_detection.features import (
+from music_detection.shared.data.audio import load_segment
+from music_detection.shared.features.spectral import (
     log_mel_spectrogram,
     slice_audio_windows,
     stft_params,

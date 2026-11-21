@@ -24,9 +24,9 @@ Requirements: pandas, ffmpeg + ffprobe on PATH.
 
 Example:
     python -m music_detection.sonics.preprocessing.prepare_clips \
-        --sonics-root /Volumes/BACKUP/SONICS \
-        --real-dir /Volumes/BACKUP/SONICS/real_songs \
-        --out-dir /Volumes/BACKUP/SONICS/clips \
+        --sonics-root ~/Datasets/SONICS \
+        --real-dir ~/Datasets/SONICS/real_songs \
+        --out-dir ~/Datasets/SONICS/clips \
         --manifest data/sonics_manifest.csv --balance
 """
 from __future__ import annotations

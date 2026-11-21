@@ -9,11 +9,11 @@ Requirements: numpy, pandas, ffmpeg + ffprobe on PATH.
 
 Examples:
     python -m music_detection.sonics.preprocessing.profile_audio \
-        --dir fake=/Volumes/BACKUP/SONICS/fake_songs --dir real=/Volumes/BACKUP/SONICS/real_songs \
+        --dir fake=~/Datasets/SONICS/fake_songs --dir real=~/Datasets/SONICS/real_songs \
         --sample 200 --csv data/sonics_profile_raw.csv
 
     python -m music_detection.sonics.preprocessing.profile_audio \
-        --dir fake=/Volumes/BACKUP/SONICS/clips/fake --dir real=/Volumes/BACKUP/SONICS/clips/real
+        --dir fake=~/Datasets/SONICS/clips/fake --dir real=~/Datasets/SONICS/clips/real
 """
 from __future__ import annotations
 

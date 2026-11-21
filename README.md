@@ -161,7 +161,7 @@ All CLI commands, Makefile targets and run folders are unchanged by this layout.
 ## SONICS pipeline (MP3, Suno/Udio)
 
 ```bash
-make sonics-plan && make sonics-fakes && make sonics-reals   # data on /Volumes/BACKUP/SONICS
+make sonics-plan && make sonics-fakes && make sonics-reals   # data in ~/Datasets/SONICS
 make sonics-profile && make sonics-clips && make sonics-train
 ```
 

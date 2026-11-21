@@ -1,4 +1,4 @@
-"""Fetch a stratified, class-balanced subset of SONICS onto an external drive.
+"""Fetch a stratified, class-balanced subset of SONICS (default: ~/Datasets/SONICS).
 
 Subcommands (run them in this order; each one is resumable):
 
@@ -16,11 +16,11 @@ Subcommands (run them in this order; each one is resumable):
           from the same split.
   status  Show progress against the plan.
 
-Example (macOS, external drive):
-    caffeinate -i python -m music_detection.sonics.preprocessing.fetch plan  --root /Volumes/BACKUP/SONICS --gb-per-class 15
-    caffeinate -i python -m music_detection.sonics.preprocessing.fetch fakes --root /Volumes/BACKUP/SONICS
-    caffeinate -i python -m music_detection.sonics.preprocessing.fetch reals --root /Volumes/BACKUP/SONICS --jobs 8
-    python -m music_detection.sonics.preprocessing.fetch status --root /Volumes/BACKUP/SONICS
+Example (macOS):
+    caffeinate -i python -m music_detection.sonics.preprocessing.fetch plan  --root ~/Datasets/SONICS --gb-per-class 15
+    caffeinate -i python -m music_detection.sonics.preprocessing.fetch fakes --root ~/Datasets/SONICS
+    caffeinate -i python -m music_detection.sonics.preprocessing.fetch reals --root ~/Datasets/SONICS --jobs 8
+    python -m music_detection.sonics.preprocessing.fetch status --root ~/Datasets/SONICS
 
 Requirements: pip install -U huggingface_hub pandas yt-dlp ; ffmpeg on PATH.
 """
@@ -135,7 +135,14 @@ def cmd_plan(args: argparse.Namespace) -> None:
     print("\nAI songs: full dataset vs selection (shares within each split should match):")
     print(table.to_string())
     print(f"\nSongs per split, identical for AI and human: {split_quota} (total {sum(split_quota.values())} per class)")
+    raw_gb = len(selection) * fake_mb / 1000 + sum(split_quota.values()) * args.real_mb_per_song / 1000
+    largest_zip_gb = max((size for _, size in parts), default=0) / 1e9
+    need_gb = raw_gb + 2 * largest_zip_gb
+    free_gb = shutil.disk_usage(root).free / 1e9
     print(f"Estimated size: AI ~{len(selection) * fake_mb / 1000:.1f} GB, human ~{sum(split_quota.values()) * args.real_mb_per_song / 1000:.1f} GB")
+    print(f"Disk: ~{need_gb:.0f} GB needed while downloading (+ ~8-20 GB for clips later); {free_gb:.0f} GB free at {root}")
+    if free_gb < need_gb + 10:
+        print("WARNING: not enough free space. Lower --gb-per-class or free up space before 'fakes'/'reals'.")
     print(f"Plan written to {plan_dir}. Next: fakes, then reals.")
 
 
@@ -227,7 +234,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     for name in ("plan", "fakes", "reals", "status"):
         p = sub.add_parser(name)
-        p.add_argument("--root", type=Path, default=Path("/Volumes/BACKUP/SONICS"))
+        p.add_argument("--root", type=Path, default=Path.home() / "Datasets" / "SONICS")
         p.add_argument("--section-seconds", type=float, default=40.0)
         if name == "plan":
             p.add_argument("--gb-per-class", type=float, default=15.0)

@@ -27,7 +27,7 @@ M6_ROOT ?= data/M6_database
 M6_MANIFEST ?= data/m6_manifest.csv
 
 # SONICS (MP3) pipeline. Override SONICS_ROOT in local.mk on other machines (e.g. D:/SONICS on Windows).
-SONICS_ROOT ?= /Volumes/BACKUP/SONICS
+SONICS_ROOT ?= $(if $(HOME),$(HOME),$(USERPROFILE))/Datasets/SONICS
 SONICS_MANIFEST ?= data/sonics_manifest.csv
 SONICS_GB ?= 15
 SONICS_JOBS ?= 8

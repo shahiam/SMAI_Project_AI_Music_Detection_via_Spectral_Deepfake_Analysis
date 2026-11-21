@@ -22,8 +22,8 @@ Requirements (install into your environment):
 Examples:
     # 3,000 successful downloads, split like SONICS, 40 s sections, 8 parallel jobs
     python -m music_detection.sonics.preprocessing.download_youtube \
-        --csv /Volumes/BACKUP/SONICS/real_songs.csv \
-        --out-dir /Volumes/BACKUP/SONICS/real_songs --limit 3000 --jobs 8
+        --csv ~/Datasets/SONICS/real_songs.csv \
+        --out-dir ~/Datasets/SONICS/real_songs --limit 3000 --jobs 8
 
     # Preview what would be downloaded without touching the network
     python -m music_detection.sonics.preprocessing.download_youtube --csv real_songs.csv \

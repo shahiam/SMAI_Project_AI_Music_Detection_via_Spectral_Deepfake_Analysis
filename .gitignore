@@ -15,6 +15,7 @@ data/m6_manifest.csv
 data/m6_small.csv
 data/sonics_manifest.csv
 data/sonics_profile_*.csv
+data/sonics_audit/
 
 # run + GUI host
 

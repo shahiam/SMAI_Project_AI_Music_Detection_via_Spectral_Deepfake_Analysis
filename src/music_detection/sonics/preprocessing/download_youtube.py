@@ -109,6 +109,22 @@ def section_for(duration: object, section_seconds: float, start_fraction: float)
     return round(start, 2), round(start + section_seconds, 2)
 
 
+class _QuietLogger:
+    """Swallow yt-dlp's own console messages; failures are recorded in download_log.csv instead."""
+
+    def debug(self, message: str) -> None:
+        pass
+
+    def info(self, message: str) -> None:
+        pass
+
+    def warning(self, message: str) -> None:
+        pass
+
+    def error(self, message: str) -> None:
+        pass
+
+
 def build_ydl_options(out_dir: Path, args: argparse.Namespace, section: tuple[float, float] | None) -> dict:
     import yt_dlp.utils
 
@@ -119,6 +135,7 @@ def build_ydl_options(out_dir: Path, args: argparse.Namespace, section: tuple[fl
         "quiet": True,
         "no_warnings": True,
         "noprogress": True,
+        "logger": _QuietLogger(),
         "retries": 3,
         "fragment_retries": 3,
         "socket_timeout": 30,
@@ -138,8 +155,12 @@ def build_ydl_options(out_dir: Path, args: argparse.Namespace, section: tuple[fl
         options["force_keyframes_at_cuts"] = True
     if args.cookies_from_browser:
         options["cookiesfrombrowser"] = (args.cookies_from_browser,)
+    if args.cookies:
+        options["cookiefile"] = str(args.cookies)
     if args.rate_limit:
         options["ratelimit"] = args.rate_limit
+    if args.sleep_requests > 0:
+        options["sleep_interval_requests"] = args.sleep_requests
     return options
 
 
@@ -165,7 +186,8 @@ BOT_MARKERS = ("confirm you", "not a bot", "429", "too many requests", "rate-lim
 class Progress:
     """Thread-safe bookkeeping for parallel downloads with per-split targets."""
 
-    def __init__(self, quotas: dict[str, int], already: dict[str, int], log_path: Path, pause_minutes: float):
+    def __init__(self, quotas: dict[str, int], already: dict[str, int], log_path: Path, pause_minutes: float,
+                 max_pauses: int = 3):
         self.quotas = quotas
         self.ok = dict(already)
         self.inflight = {split: 0 for split in quotas}
@@ -177,7 +199,7 @@ class Progress:
         self.pause_seconds = pause_minutes * 60
         self.bot_hits = 0
         self.pauses = 0
-        self.max_pauses = 3
+        self.max_pauses = max_pauses
         self.stop = False
 
     def set_candidates(self, rows: list) -> None:
@@ -220,7 +242,7 @@ class Progress:
                     if self.pauses > self.max_pauses:
                         self.stop = True
                         print("YouTube keeps blocking downloads. Stopping; re-run later or add "
-                              "--cookies-from-browser chrome (progress is kept).", flush=True)
+                              "--cookies-from-browser <brave|firefox|safari|chrome> (progress is kept).", flush=True)
                     else:
                         self.pause_until = time.time() + self.pause_seconds
                         print(f"YouTube is rate-limiting/asking for sign-in: pausing all jobs for "
@@ -271,7 +293,12 @@ def main() -> None:
     parser.add_argument("--sample-rate", type=int, default=44100, help="Sample rate forced for mp3 output")
     parser.add_argument("--sleep", type=float, default=2.0, help="Seconds each job waits between songs (be polite)")
     parser.add_argument("--pause-minutes", type=float, default=10.0, help="Pause after repeated rate-limit errors")
+    parser.add_argument("--max-pauses", type=int, default=3,
+                        help="Stop after this many rate-limit pauses in a row (raise it to wait out limits overnight)")
+    parser.add_argument("--sleep-requests", type=float, default=1.0,
+                        help="Seconds yt-dlp waits between its own web requests for one video")
     parser.add_argument("--cookies-from-browser", help="e.g. chrome, firefox, safari if YouTube asks you to sign in")
+    parser.add_argument("--cookies", type=Path, help="Netscape-format cookies.txt exported from a logged-in browser")
     parser.add_argument("--rate-limit", help="Max download speed per job, e.g. 2M")
     parser.add_argument("--retry-failed", action="store_true", help="Retry songs logged as failed")
     parser.add_argument("--dry-run", action="store_true", help="Print the plan without downloading")
@@ -315,7 +342,7 @@ def main() -> None:
             todo.append(row)
     print("Already downloaded per split:", already)
 
-    progress = Progress(quotas, already, log_path, args.pause_minutes)
+    progress = Progress(quotas, already, log_path, args.pause_minutes, args.max_pauses)
     started = time.perf_counter()
 
     progress.set_candidates(todo)

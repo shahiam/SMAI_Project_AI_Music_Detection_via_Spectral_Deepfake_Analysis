@@ -11,7 +11,8 @@ separately (`runs/sonics_*`).
 | `download_youtube` | yt-dlp downloader used by `fetch reals` (parallel jobs, per-split targets, replaces failed videos, backs off when rate-limited, resumable). |
 | `profile_audio` | Codec, sample rate, channels, bitrate, duration and measured bandwidth per class. |
 | `prepare_clips` | K clips per song, identical encoding for both classes (codec parity + same bandwidth), SONICS split kept; `--balance` = equal songs and clips per split, AI side keeps generator x label proportions. |
-| `utils` | Shared helpers (split names, stratified allocation). |
+| `audit` | Genre mix per class (raw + coarse buckets), equal-per-genre feasibility, vocals, era, artists, duplicates, prompt reuse, bitrates. CSV/filenames only, no decoding. |
+| `utils` | Shared helpers (split names, stratified allocation, coarse genre buckets). |
 
 Requirements: `pip install -U yt-dlp huggingface_hub` (plus the project requirements) and ffmpeg/ffprobe
 on PATH (macOS `brew install ffmpeg`, Windows `winget install ffmpeg`).
@@ -23,6 +24,7 @@ make sonics-plan                 # SONICS_GB=15 per class by default
 make sonics-fakes                # terminal 1
 make sonics-reals                # terminal 2, at the same time (SONICS_JOBS=8)
 make sonics-status
+make sonics-audit                # genre mix and shortcut risks; run before building clips
 make sonics-profile              # decide SONICS_CLIP_RATE (2 x lowest bandwidth; default 32000)
 make sonics-clips                # -> data/sonics_manifest.csv
 make sonics-profile-clips        # both classes must now look identical

@@ -32,9 +32,19 @@ SONICS_MANIFEST ?= data/sonics_manifest.csv
 SONICS_GB ?= 15
 SONICS_JOBS ?= 8
 SONICS_CLIP_RATE ?= 32000
+# YouTube download settings. Set in local.mk, e.g.:
+#   SONICS_BROWSER := chrome                       (browser where you are logged in to YouTube)
+#   YTDLP_PY := $(HOME)/ytdlp_env/bin/python       (Python >= 3.11 env with yt-dlp + pandas)
+SONICS_BROWSER ?=
+SONICS_YT_JOBS ?= 4
+SONICS_YT_SLEEP ?= 15
+SONICS_YT_PAUSE ?= 20
+SONICS_YT_MAX_PAUSES ?= 8
+SONICS_YT_SLEEP_REQUESTS ?= 1.5
+YTDLP_PY ?= $(PY)
 SONICS_PREP := $(PY) -m music_detection.sonics.preprocessing
 
-.PHONY: help venv install test demo classical modern extract-m6 m6-manifest m6-classical m6-modern m6-train m6-bl-classical m6-bl-modern m6-bl-ensemble m6-bl sr-baseline sonics-plan sonics-fakes sonics-reals sonics-status sonics-profile sonics-clips sonics-profile-clips sonics-sr-baseline sonics-classical sonics-modern sonics-ensemble sonics-train train dashboard all clean
+.PHONY: help venv install test demo classical modern extract-m6 m6-manifest m6-classical m6-modern m6-train m6-bl-classical m6-bl-modern m6-bl-ensemble m6-bl sr-baseline sonics-plan sonics-fakes sonics-reals sonics-status sonics-audit sonics-profile sonics-clips sonics-profile-clips sonics-sr-baseline sonics-classical sonics-modern sonics-ensemble sonics-train train dashboard all clean
 
 help:
 	@echo "Sarcospectus project commands:"
@@ -52,8 +62,9 @@ help:
 	@echo "SONICS pipeline (data in SONICS_ROOT=$(SONICS_ROOT)):"
 	@echo "  make sonics-plan     Download metadata, choose a stratified balanced subset (SONICS_GB per class)"
 	@echo "  make sonics-fakes    Download the selected AI songs (Hugging Face zip parts)"
-	@echo "  make sonics-reals    Download the matching human songs from YouTube (SONICS_JOBS parallel)"
+	@echo "  make sonics-reals    Download the matching human songs from YouTube (SONICS_YT_JOBS, SONICS_BROWSER)"
 	@echo "  make sonics-status   Progress against the plan"
+	@echo "  make sonics-audit    Genre mix + shortcut risks (vocals, era, artists, duplicates) per class"
 	@echo "  make sonics-profile  Sample rate / codec / bitrate / bandwidth per class (raw songs)"
 	@echo "  make sonics-clips    Build identical-format clips + data/sonics_manifest.csv"
 	@echo "  make sonics-train    Classical + modern + validated ensemble on the SONICS manifest"
@@ -127,11 +138,16 @@ sonics-plan:
 sonics-fakes:
 	$(SONICS_PREP).fetch fakes --root "$(SONICS_ROOT)"
 
+# PYTHONPATH lets a separate yt-dlp environment (YTDLP_PY) import this package without torch etc.
+sonics-reals: export PYTHONPATH := $(CURDIR)/src
 sonics-reals:
-	$(SONICS_PREP).fetch reals --root "$(SONICS_ROOT)" --jobs $(SONICS_JOBS)
+	$(YTDLP_PY) -m music_detection.sonics.preprocessing.fetch reals --root "$(SONICS_ROOT)" --jobs $(SONICS_YT_JOBS) --sleep $(SONICS_YT_SLEEP) --pause-minutes $(SONICS_YT_PAUSE) --max-pauses $(SONICS_YT_MAX_PAUSES) --sleep-requests $(SONICS_YT_SLEEP_REQUESTS) $(if $(SONICS_BROWSER),--cookies-from-browser $(SONICS_BROWSER),)
 
 sonics-status:
 	$(SONICS_PREP).fetch status --root "$(SONICS_ROOT)"
+
+sonics-audit:
+	$(SONICS_PREP).audit --root "$(SONICS_ROOT)" --out data/sonics_audit
 
 sonics-profile:
 	$(SONICS_PREP).profile_audio --dir fake="$(SONICS_ROOT)/fake_songs" --dir real="$(SONICS_ROOT)/real_songs" --csv data/sonics_profile_raw.csv
